@@ -565,6 +565,34 @@
         };
         this.start = this.play; // just for convenience
         /**
+         * Calls the play() method of a SMSound object by url.
+         *
+         * @param {string} url The URL of the sound
+         * @return {SMSound} The SMSound object
+         */
+        this.playSingleTrack = function(url) {
+            var result = null;
+            if(!didInit || !sm2.ok()) {
+                complain(sm + '.play(): ' + str(!didInit ? 'notReady' : 'notOK'));
+                return false;
+            }
+            var oOptions = {
+                url: url
+            };
+            var sID = Math.random() * 999999;
+            if(oOptions && oOptions.url) {
+                // overloading use case, create+play: .play('someID', {url:'/path/to.mp3'});
+                sm2._wD(sm + '.play(): Attempting to create "' + sID + '"', 1);
+                oOptions.id = sID;
+                result = sm2.createSound(oOptions).play();
+            }
+            if(result === null) {
+                // default case
+                result = sm2.sounds[sID].play(oOptions);
+            }
+            return result;
+        };
+        /**
          * Calls the setPosition() method of a SMSound object by ID.
          *
          * @param {string} sID The ID of the sound
@@ -4639,6 +4667,14 @@ ngSoundManager.factory('angularPlayer', ['$rootScope', '$log',
                 isPlaying = true;
                 $rootScope.$broadcast('music:isPlaying', isPlaying);
             },
+            initPlaySingleTrack: function(url) {
+                //play it
+                soundManager.playSingleTrack(url);
+                $rootScope.$broadcast('track:id', 0);
+                //set as playing
+                isPlaying = true;
+                $rootScope.$broadcast('music:isPlaying', isPlaying);
+            },
             play: function() {
                 var trackToPlay = null;
                 //check if no track loaded, else play loaded track
@@ -4672,6 +4708,9 @@ ngSoundManager.factory('angularPlayer', ['$rootScope', '$log',
             },
             playTrack: function(trackId) {
                 this.initPlayTrack(trackId);
+            },
+            playSingleTrack: function(url) {
+                this.initPlaySingleTrack(url);
             },
             nextTrack: function() {
                 if(this.getCurrentTrack() === null) {
@@ -4859,10 +4898,34 @@ ngSoundManager.directive('musicPlayer', ['angularPlayer', '$log',
                     if(attrs.musicPlayer === 'play') {
                         angularPlayer.playTrack(trackId);
                     }
+
                 };
                 element.bind('click', function() {
                     $log.debug('adding song to playlist');
                     addToPlaylist();
+                });
+            }
+        };
+    }
+]);
+
+ngSoundManager.directive('playSingleTrack', ['angularPlayer', '$log',
+    function(angularPlayer, $log) {
+        return {
+            restrict: "EA",
+            scope: {
+                song: "=playTrack"
+            },
+            link: function(scope, element, attrs) {
+                var playSingleTrack = function() {
+                    //if request to play the track
+                    angularPlayer.stop();
+                    angularPlayer.playSingleTrack(scope.song.url);
+
+                };
+                element.bind('click', function() {
+                    $log.debug('playing song');
+                    playSingleTrack();
                 });
             }
         };
